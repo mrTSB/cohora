@@ -4,8 +4,8 @@ import json
 import httpx
 import websockets
 
-BASE_URL = "https://0622-50-175-245-62.ngrok-free.app"
-WS_URL = "wss://0622-50-175-245-62.ngrok-free.app/ws"
+BASE_URL = "https://79e5-50-175-245-62.ngrok-free.app"
+WS_URL = "wss://79e5-50-175-245-62.ngrok-free.app/ws"
 
 async def main():
     async with httpx.AsyncClient() as client:
@@ -63,7 +63,7 @@ async def main():
 async def listen_test():
     async with httpx.AsyncClient() as client:
         # Create a single user
-        res = await client.post(f"{BASE_URL}/api/users/create", json={"name": "Asanshay"})
+        res = await client.post(f"{BASE_URL}/api/users/create", json={"name": "AG"})
         user_data = res.json()
         user_id = user_data["id"]
         print("Created user:")
