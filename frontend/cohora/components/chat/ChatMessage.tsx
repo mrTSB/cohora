@@ -37,7 +37,7 @@ const customSyntaxTheme = {
  * @param content - Markdown string to render
  * @returns JSX Element with rendered markdown
  */
-const renderMarkdown = (content: string): JSX.Element => {
+const renderMarkdown = (content: string): React.ReactNode => {
   // Define custom components for all markdown elements
   const components: Components = {
     // Text components

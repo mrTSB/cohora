@@ -1,15 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
+import { createChat } from "@/lib/chat-store";
 
-import { ToolInvocation } from "ai";
-import { useChat } from "@ai-sdk/react";
-import ChatMessage from "@/components/chat/ChatMessage";
-import ChatInput from "@/components/chat/ChatInput";
-import Chat from "@/components/chat/Chat";
-
-export default function ChatPage() {
-  return (
-    <div className="flex flex-col h-full w-full mx-auto">
-      <Chat />
-    </div>
-  );
+export default async function Page() {
+  const id = await createChat(); // create a new chat
+  redirect(`/chat/${id}`); // redirect to chat page, see below
 }

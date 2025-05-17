@@ -6,12 +6,21 @@ import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";
 import { useChat } from "@ai-sdk/react";
 import Image from "next/image";
+import { Message } from "ai";
 
-export default function Chat() {
+interface ChatProps {
+  id?: string;
+  initialMessages?: Message[];
+}
+
+export default function Chat({ id, initialMessages }: ChatProps) {
   const { user } = useUser();
-  const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+    id,
+    initialMessages,
     maxSteps: 20,
   });
+
   return (
     <div className="flex flex-col max-w-screen-lg h-screen mx-auto w-full">
       <div className="flex-1 overflow-y-auto space-y-6 p-8 mx-auto min-h-0 w-full">
