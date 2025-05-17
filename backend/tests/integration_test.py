@@ -63,7 +63,7 @@ async def main():
 async def listen_test():
     async with httpx.AsyncClient() as client:
         # Create a single user
-        res = await client.post(f"{BASE_URL}/api/users/create", json={"name": "Tanvir"})
+        res = await client.post(f"{BASE_URL}/api/users/create", json={"name": "Asanshay"})
         user_data = res.json()
         user_id = user_data["id"]
         print("Created user:")

@@ -87,7 +87,7 @@ const tools: Tool[] = [
       message: z.string(),
     }),
     execute: async ({ userId, recipientName, message }: { userId: string, recipientName: string, message: string }) => {
-      const response = await fetch('http://localhost:8000/api/messages/send', {
+      const response = await fetch('https://0622-50-175-245-62.ngrok-free.app/api/messages/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
