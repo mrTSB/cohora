@@ -4,6 +4,11 @@ import json
 import requests
 import sys
 from datetime import datetime
+import logging
+import ssl
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class ChatClient:
     def __init__(self, base_url, ws_url):
@@ -12,59 +17,110 @@ class ChatClient:
         self.user_id = None
         self.username = None
         self.ws = None
+        self.connected = False
+        self.should_reconnect = True
+        self.last_status_check = 0
 
     async def register(self, username):
         """Register a new user"""
-        response = requests.post(
-            f"{self.base_url}/api/users/create",
-            json={"name": username}
-        )
-        if response.status_code == 201:
-            self.user_id = response.json()["id"]
-            self.username = username
-            print(f"Registered successfully! User ID: {self.user_id}")
-            return True
-        else:
-            print(f"Registration failed: {response.text}")
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/users/create",
+                json={"name": username}
+            )
+            if response.status_code == 201:
+                self.user_id = response.json()["id"]
+                self.username = username
+                logger.info(f"Registered successfully! User ID: {self.user_id}")
+                return True
+            else:
+                logger.error(f"Registration failed: {response.text}")
+                return False
+        except Exception as e:
+            logger.error(f"Error during registration: {e}")
             return False
 
     async def connect_websocket(self):
         """Connect to the WebSocket server"""
-        try:
-            self.ws = await websockets.connect(self.ws_url)
-            # Send authentication
-            await self.ws.send(json.dumps({"id": self.user_id}))
-            response = await self.ws.recv()
-            print(f"WebSocket connected: {response}")
-            return True
-        except Exception as e:
-            print(f"WebSocket connection failed: {e}")
-            return False
+        while True:  # Keep trying forever
+            try:
+                if self.ws:
+                    try:
+                        await self.ws.close()
+                    except:
+                        pass
+                
+                logger.info("Attempting to connect to WebSocket...")
+                
+                headers = {"X-User-ID": self.user_id} if self.user_id else {}
+                ssl_context = ssl._create_unverified_context()
+                self.ws = await websockets.connect(
+                    self.ws_url,
+                    ping_interval=None,  # We'll handle our own heartbeat
+                    ping_timeout=None,   # Disable built-in ping timeout
+                    close_timeout=None,  # Never timeout on close
+                    max_size=10_000_000, # 10MB max message size
+                    extra_headers=headers,
+                    ssl=ssl_context
+                )
+                
+                if headers:
+                    logger.info("Authentication via header used; skipping auth message")
+                else:
+                    auth_data = {"id": self.user_id}
+                    logger.info(f"Sending authentication: {auth_data}")
+                    await self.ws.send(json.dumps(auth_data))
+                
+                # Wait for auth response
+                response = await self.ws.recv()
+                response_data = json.loads(response)
+                
+                if response_data.get("type") == "connection_status":
+                    logger.info(f"WebSocket connected: {response_data['message']}")
+                    self.connected = True
+                    return True
+                    
+            except Exception as e:
+                logger.error(f"Connection attempt failed: {e}")
+                self.connected = False
+                await asyncio.sleep(2)  # Wait briefly before retry
+                continue
 
     async def send_message(self, recipient_name, message):
         """Send a message to another user"""
-        response = requests.post(
-            f"{self.base_url}/api/messages/send",
-            headers={"X-User-ID": self.user_id},
-            json={
-                "recipient_name": recipient_name,
-                "message": message
-            }
-        )
-        print(f"Message send response: {response.text}")
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/messages/send",
+                headers={"X-User-ID": self.user_id},
+                json={
+                    "recipient_name": recipient_name,
+                    "message": message
+                }
+            )
+            if response.status_code == 200:
+                logger.info("Message sent successfully")
+            else:
+                logger.error(f"Failed to send message: {response.text}")
+        except Exception as e:
+            logger.error(f"Error sending message: {e}")
 
     async def receive_messages(self):
         """Receive messages"""
-        try:
-            while True:
+        while True:  # Never stop receiving
+            if not self.ws or not self.connected:
+                await self.connect_websocket()
+                continue
+
+            try:
                 message = await self.ws.recv()
                 try:
                     data = json.loads(message)
-                    # Check if this is a message or connection status
                     if "type" in data and data["type"] == "connection_status":
-                        print(f"\nConnection status: {data['message']}")
-                    else:
-                        timestamp = datetime.fromtimestamp(data["timestamp"]).strftime('%H:%M:%S')
+                        logger.info(f"Connection status: {data['message']}")
+                    elif "type" in data and data["type"] == "heartbeat":
+                        continue  # Skip heartbeat messages
+                    elif message.strip():  # Only process non-empty messages
+                        timestamp = datetime.now().strftime('%H:%M:%S')
                         print(f"\n\n=== New Message ===")
                         print(f"From: {data['from']}")
                         print(f"Time: {timestamp}")
@@ -72,41 +128,86 @@ class ChatClient:
                         print("=================")
                         print("\nEnter message (recipient message): ", end='', flush=True)
                 except json.JSONDecodeError:
-                    # This might be a heartbeat response
+                    # Not a JSON message
                     continue
                 except Exception as e:
-                    print(f"\nError processing message: {e}")
-                    print("Raw message:", message)
-                    print("\nEnter message (recipient message): ", end='', flush=True)
-        except websockets.exceptions.ConnectionClosed:
-            print("\nConnection closed")
+                    logger.error(f"Error processing message: {e}")
+                    
+            except Exception as e:
+                logger.warning(f"Receive error, reconnecting: {e}")
+                self.connected = False
+                await asyncio.sleep(1)
 
     async def heartbeat(self):
         """Send periodic heartbeat to keep connection alive"""
-        try:
-            while True:
-                await self.ws.send("")  # Empty message as heartbeat
-                await asyncio.sleep(5)  # Send heartbeat every 5 seconds
-        except websockets.exceptions.ConnectionClosed:
-            print("Heartbeat: Connection closed")
+        while True:  # Never stop heartbeat
+            try:
+                if self.ws and self.connected:
+                    await self.ws.send("")
+                    try:
+                        response = await self.ws.recv()
+                        try:
+                            data = json.loads(response)
+                            if data.get("type") == "heartbeat":
+                                logger.debug("Heartbeat ok")
+                        except json.JSONDecodeError:
+                            # Might be a regular message
+                            pass
+                    except Exception as e:
+                        logger.warning(f"Heartbeat response error: {e}")
+                        self.connected = False
+                
+                await asyncio.sleep(15)  # Heartbeat every 15 seconds
+                
+            except Exception as e:
+                logger.error(f"Heartbeat error: {e}")
+                self.connected = False
+                await asyncio.sleep(1)
+
+    async def check_connection_status(self):
+        """Regularly check and report WebSocket connection status"""
+        last_status = None
+        while True:  # Never stop checking
+            try:
+                current_status = "CONNECTED" if self.ws and self.connected else "RECONNECTING..."
+                current_time = datetime.now().strftime('%H:%M:%S')
+                
+                if current_status != last_status:
+                    if current_status == "CONNECTED":
+                        print(f"\n[{current_time}] WebSocket: ✓ CONNECTED")
+                    else:
+                        print(f"\n[{current_time}] WebSocket: ⟳ RECONNECTING...")
+                
+                last_status = current_status
+                
+            except Exception as e:
+                logger.error(f"Status check error: {e}")
+                
+            await asyncio.sleep(5)  # Check every 5 seconds
 
     async def run(self):
         """Main loop for sending messages"""
         try:
+            print("\nChat Client Started")
+            print("===================")
             print("Enter messages in format: recipient_name message")
             print("Example: Alice Hello there!")
             print("Enter 'quit' to exit")
+            print("===================\n")
             
-            # Start heartbeat in the background
-            heartbeat_task = asyncio.create_task(self.heartbeat())
+            # Start background tasks
+            tasks = [
+                asyncio.create_task(self.heartbeat()),
+                asyncio.create_task(self.receive_messages()),
+                asyncio.create_task(self.check_connection_status())
+            ]
             
             while True:
                 try:
-                    user_input = input("Enter message (recipient message): ")
+                    user_input = input("\nEnter message (recipient message): ")
                     if user_input.lower() == 'quit':
                         break
 
-                    # Split input into recipient and message
                     parts = user_input.split(' ', 1)
                     if len(parts) != 2:
                         print("Invalid format. Use: recipient_name message")
@@ -115,19 +216,21 @@ class ChatClient:
                     recipient, message = parts
                     await self.send_message(recipient, message)
                 except Exception as e:
-                    print(f"Error sending message: {e}")
+                    logger.error(f"Error in main loop: {e}")
 
         except KeyboardInterrupt:
-            print("\nExiting...")
+            logger.info("\nExiting...")
         finally:
-            if self.ws:
-                await self.ws.close()
-            # Cancel heartbeat task
-            heartbeat_task.cancel()
+            # Cancel all background tasks
+            for task in tasks:
+                task.cancel()
             try:
-                await heartbeat_task
+                await asyncio.gather(*tasks, return_exceptions=True)
             except asyncio.CancelledError:
                 pass
+            
+            if self.ws:
+                await self.ws.close()
 
 async def main():
     if len(sys.argv) != 2:
@@ -137,8 +240,8 @@ async def main():
     username = sys.argv[1]
     
     # Using the ngrok URLs
-    base_url = "https://829b-50-175-245-62.ngrok-free.app"
-    ws_url = "wss://829b-50-175-245-62.ngrok-free.app/ws"
+    base_url = "https://539d-50-175-245-62.ngrok-free.app"
+    ws_url = "https://539d-50-175-245-62.ngrok-free.app"
     
     print(f"Connecting to server at {base_url}")
     print(f"WebSocket URL: {ws_url}")
@@ -147,11 +250,7 @@ async def main():
     
     # Register and connect
     if await client.register(username):
-        if await client.connect_websocket():
-            # Start receiving messages in the background
-            asyncio.create_task(client.receive_messages())
-            # Run the main loop for sending messages
-            await client.run()
+        await client.run()  # This will handle connection and reconnection
 
 if __name__ == "__main__":
     asyncio.run(main()) 

@@ -167,20 +167,34 @@ async def send_message(
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    print("[Server] WebSocket connection accepted")
     user_id: Optional[str] = None
-    
     try:
-        # Get authentication data
-        auth_data = await websocket.receive_json()
-        user_id = auth_data.get("id")
+        # Attempt to get user_id from header
+        user_id = websocket.headers.get("x-user-id")
+        if user_id:
+            # If header is provided, flush any duplicate auth message
+            try:
+                extra = await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
+                try:
+                    import json
+                    data = json.loads(extra)
+                    if "id" in data and data["id"] == user_id:
+                        print("[Server] Duplicate auth message received and ignored")
+                    else:
+                        print(f"[Server] Received unexpected message during auth: {extra}")
+                except Exception as parse_err:
+                    print(f"[Server] Received non-JSON message during auth: {extra}")
+            except asyncio.TimeoutError:
+                pass
+        else:
+            # If header not provided, wait for authentication JSON message
+            auth_data = await websocket.receive_json()
+            user_id = auth_data.get("id")
         
         # Validate user_id
-        if not user_id:
-            await websocket.close(code=WSCloseCode.AUTHENTICATION_FAILED)
-            return
-            
-        if not any(id == user_id for id in users.values()):
-            await websocket.close(code=WSCloseCode.INVALID_USER)
+        if not user_id or not any(existing_id == user_id for existing_id in users.values()):
+            await websocket.close(code=1008)
             return
         
         # Store connection
@@ -194,18 +208,39 @@ async def websocket_endpoint(websocket: WebSocket):
             "message": "Connected successfully"
         })
         
-        # Keep connection alive and handle incoming messages
+        # Keep connection alive and listen for messages
         while True:
-            await websocket.receive_text()  # Heartbeat
+            message = await websocket.receive_text()
             
+            # Handle heartbeat
+            if not message.strip():
+                await websocket.send_json({
+                    "type": "heartbeat",
+                    "status": "ok"
+                })
+                continue
+            
+            # Handle other messages
+            print(f"[Server] Received message from {user_id}: {message}")
     except WebSocketDisconnect:
+        print(f"[Server] Connection disconnected for user '{user_id}'")
+    except Exception as e:
+        print(f"[Server] Error in WebSocket connection for user '{user_id}': {str(e)}")
+    finally:
         if user_id in connections:
             del connections[user_id]
-            print(f"[Server] User with ID '{user_id}' disconnected")
-    except Exception as e:
-        print(f"[Server] Error in WebSocket connection: {str(e)}")
-        if websocket.client_state.CONNECTED:
-            await websocket.close(code=WSCloseCode.INTERNAL_ERROR)
+            print(f"[Server] Cleaned up connection for user '{user_id}'")
+
+# New background task for periodic status logging
+async def print_status_periodically():
+    while True:
+        print(f"[Status Update] Current users: {users}")
+        print(f"[Status Update] Active WS connections: {list(connections.keys())}")
+        await asyncio.sleep(10)
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(print_status_periodically())
 
 if __name__ == "__main__":
     public_url = ngrok.connect(8000, "http")
