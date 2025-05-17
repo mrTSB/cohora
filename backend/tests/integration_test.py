@@ -4,8 +4,8 @@ import json
 import httpx
 import websockets
 
-BASE_URL = "http://localhost:8000"
-WS_URL = "ws://localhost:8000/ws"
+BASE_URL = "https://4b88-50-175-245-62.ngrok-free.app"
+WS_URL = "wss://4b88-50-175-245-62.ngrok-free.app/ws"
 
 async def main():
     async with httpx.AsyncClient() as client:
