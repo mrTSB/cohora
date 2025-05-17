@@ -218,7 +218,11 @@ function ToolCall({ toolCall, onResult }: ToolCallProps) {
                 <span className="font-medium">{curTool?.doneName ?? "Called " + toolName}</span>
               </div>
             </AccordionTrigger>
-            <AccordionContent className="pt-2">{result}</AccordionContent>
+            <AccordionContent className="pt-2">
+              <pre className="text-sm">
+                {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
+              </pre>
+            </AccordionContent>
           </AccordionItem>
         </Accordion>
       );
