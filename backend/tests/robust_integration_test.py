@@ -7,9 +7,14 @@ import httpx
 import websockets
 import pytest
 
+# IMPORTANT: Ensure the FastAPI server from `backend/main.py` is running before executing these tests.
+# You can typically run the server using: python backend/main.py
+# And then run the tests in a separate terminal using: pytest backend/tests/robust_integration_test.py
+
 # Configuration
 BASE_URL = "http://localhost:8000"
 WS_URL = "ws://localhost:8000/ws"
+WEBSOCKET_TIMEOUT = 5.0 # seconds for operations like ack
 
 # Helper Functions
 async def create_user(client: httpx.AsyncClient, name: str) -> Dict[str, Any]:
@@ -22,19 +27,55 @@ async def connect_ws(user_id: str, send_auth_json: bool = True, use_header: bool
     if use_header and user_id:
         headers["x-user-id"] = user_id
     
-    ws = await websockets.connect(WS_URL, extra_headers=headers if use_header else None)
+    try:
+        ws = await websockets.connect(WS_URL, extra_headers=headers if use_header else None, open_timeout=WEBSOCKET_TIMEOUT)
+    except Exception as e:
+        raise AssertionError(f"Failed to connect to WebSocket at {WS_URL}: {e}")
     
     if send_auth_json and user_id and not use_header: # Only send JSON auth if not using header auth
         await ws.send(json.dumps({"id": user_id}))
-        # Wait for ack
-        ack = await ws.recv()
-        print(f"Auth ack for {user_id}: {ack}")
-        assert json.loads(ack).get("status") == 101 # Switching Protocols
+        try:
+            raw_ack = await asyncio.wait_for(ws.recv(), timeout=WEBSOCKET_TIMEOUT)
+        except asyncio.TimeoutError:
+            await ws.close(code=1001, reason="Client timeout waiting for ack")
+            raise AssertionError(f"Timeout waiting for WebSocket ack (JSON auth) for user {user_id}")
+        except websockets.exceptions.ConnectionClosed as e:
+            raise AssertionError(f"WebSocket connection closed while waiting for ack (JSON auth) for user {user_id}: {e}")
+        
+        print(f"Auth ack for {user_id} (JSON auth): {raw_ack}")
+        try:
+            ack_data = json.loads(raw_ack)
+        except json.JSONDecodeError:
+            await ws.close(code=1003, reason="Client received malformed ack")
+            raise AssertionError(f"Failed to decode JSON from WebSocket ack (JSON auth) for user {user_id}: {raw_ack}")
+
+        if not (ack_data.get("type") == "connection_status" and ack_data.get("status") == 101):
+            await ws.close(code=1002, reason="Client received unexpected ack")
+            raise AssertionError(f"WebSocket ack (JSON auth) for user {user_id} was not as expected: {ack_data}")
+
     elif use_header and user_id:
-        # If using header, server should send ack immediately
-        ack = await ws.recv()
-        print(f"Auth ack for {user_id} (header auth): {ack}")
-        assert json.loads(ack).get("status") == 101
+        try:
+            raw_ack = await asyncio.wait_for(ws.recv(), timeout=WEBSOCKET_TIMEOUT)
+        except asyncio.TimeoutError:
+            await ws.close(code=1001, reason="Client timeout waiting for ack")
+            raise AssertionError(f"Timeout waiting for WebSocket ack (header auth) for user {user_id}")
+        except websockets.exceptions.ConnectionClosed as e:
+            raise AssertionError(f"WebSocket connection closed while waiting for ack (header auth) for user {user_id}: {e}")
+
+        print(f"Auth ack for {user_id} (header auth): {raw_ack}")
+        try:
+            ack_data = json.loads(raw_ack)
+        except json.JSONDecodeError:
+            await ws.close(code=1003, reason="Client received malformed ack")
+            raise AssertionError(f"Failed to decode JSON from WebSocket ack (header auth) for user {user_id}: {raw_ack}")
+
+        if not (ack_data.get("type") == "connection_status" and ack_data.get("status") == 101):
+            await ws.close(code=1002, reason="Client received unexpected ack")
+            raise AssertionError(f"WebSocket ack (header auth) for user {user_id} was not as expected: {ack_data}")
+    # If user_id is None (e.g. for testing no_auth scenarios), we don't expect an ack here.
+    elif not user_id and not send_auth_json and not use_header:
+        pass # No automatic ack expected for unauthenticated connections immediately after connect
+    
     return ws
 
 # Test Suite
@@ -511,18 +552,38 @@ async def test_websocket_malformed_auth_json():
 # (e.g., removal from `connections` dict) is harder without direct server-side state inspection 
 # or specific server logs for these tests. We trust `main.py`'s `finally` block in `websocket_endpoint` handles this.
 
-async def main():
-    # This function can be used to run specific tests if not using pytest,
-    # but pytest handles test discovery and execution automatically.
-    print("Running robust integration tests...")
-    # Example of how you might run tests manually (not recommended if using pytest)
-    # await test_create_and_list_users()
-    # await test_create_user_already_exists()
-    print("Robust integration tests finished.")
+async def main_manual_run():
+    # This function is for basic manual checking and is NOT a substitute for pytest.
+    # Pytest provides proper test discovery, execution, and reporting.
+    # Ensure your server from `main.py` is running before trying this.
+    print("Attempting a limited manual run of some test functions...")
+    print("This is not comprehensive. For full testing, use: pytest tests/robust_integration_test.py")
+    
+    # Example: You could selectively call some test functions here for quick checks.
+    # However, it's often better to run specific tests via pytest command-line options.
+    # e.g., `pytest tests/robust_integration_test.py -k test_websocket_connect_auth_json`
+    
+    # For this example, we'll just print a message.
+    # To actually run tests here, you'd need to:
+    # 1. Create an httpx.AsyncClient()
+    # 2. Call test functions: e.g., await test_create_and_list_users(client_here) (if tests accept client as param)
+    #    Or structure tests to be callable without direct pytest fixtures if you want to run them here.
+    #    The current pytest structure with `async with httpx.AsyncClient() as client:` inside each test
+    #    is standard for pytest but makes them less straightforward to call directly in a simple loop.
+
+    print("Manual run placeholder finished. Please use pytest for actual testing.")
 
 if __name__ == "__main__":
-    # It's better to run pytest from the command line:
-    # cd backend
-    # python -m pytest tests/robust_integration_test.py
-    # However, you can still run this file directly for limited testing:
-    asyncio.run(main()) 
+    print("### Running robust_integration_test.py directly ###")
+    print("This script is intended to be run with pytest: `pytest tests/robust_integration_test.py`")
+    print("Make sure the server from `backend/main.py` is running on localhost:8000.")
+    print("The `main_manual_run()` function below is for extremely limited, manual checks only.")
+    print("It does NOT execute the full test suite or provide proper results.")
+    
+    # To perform a very limited manual check (not recommended for CI/thorough testing):
+    # asyncio.run(main_manual_run())
+    print("\nExiting. Use pytest to run the tests.")
+
+    # Note: The original asyncio.run(main()) is removed to prevent accidental execution 
+    # of a potentially incomplete or misleading test sequence when run directly.
+    # The primary execution method should be `pytest`. 

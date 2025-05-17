@@ -39,6 +39,8 @@ async def main():
         ack_bob = await ws_bob.recv()
         print("Alice WebSocket Ack:", ack_alice)
         print("Bob WebSocket Ack:", ack_bob)
+
+        await asyncio.sleep(20)
         
         # Send a message from Alice to Bob via the HTTP endpoint
         message_payload = {

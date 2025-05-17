@@ -236,7 +236,7 @@ async def print_status_periodically():
     while True:
         print(f"[Status Update] Current users: {users}")
         print(f"[Status Update] Active WS connections: {list(connections.keys())}")
-        await asyncio.sleep(60)
+        await asyncio.sleep(10)
 
 @app.on_event("startup")
 async def startup_event():
