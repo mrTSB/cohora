@@ -1,6 +1,8 @@
 import { ToolSet } from "ai";
 import { Cloud, LucideIcon, MessageCircle, Activity } from "lucide-react";
 import { z } from "zod";
+import { experimental_createMCPClient } from "ai";
+import { Experimental_StdioMCPTransport as StdioMCPTransport } from "ai/mcp-stdio";
 
 interface Tool {
   name: string;
@@ -110,7 +112,6 @@ const tools: Tool[] = [
     doneName: "Message sent!",
   },
 ];
-
 const getTool = (name: string) => tools.find((tool) => tool.name === name);
 
 const getAllTools: ToolSet = tools.reduce((acc, tool) => {
@@ -122,4 +123,15 @@ const getAllTools: ToolSet = tools.reduce((acc, tool) => {
   return acc;
 }, {} as ToolSet);
 
-export { getAllTools, getTool };
+interface MCPServer {
+  name: string;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  transport: {
+    type: "stdio" | "sse";
+    url?: string;
+  };
+}
+
+export { getAllTools, getTool, type Tool, type MCPServer };

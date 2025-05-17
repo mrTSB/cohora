@@ -37,7 +37,7 @@ const customSyntaxTheme = {
  * @param content - Markdown string to render
  * @returns JSX Element with rendered markdown
  */
-const renderMarkdown = (content: string): React.ReactNode => {
+const renderMarkdown = (content: string, key: string): React.ReactNode => {
   // Define custom components for all markdown elements
   const components: Components = {
     // Text components
@@ -148,6 +148,7 @@ const renderMarkdown = (content: string): React.ReactNode => {
 
   return (
     <ReactMarkdown
+      key={key}
       components={components}
       remarkPlugins={[remarkGfm]} // Enables GitHub Flavored Markdown support
     >
@@ -164,11 +165,12 @@ interface ToolInvocation {
 }
 
 interface ToolCallProps {
+  key: string;
   toolCall: ToolInvocation;
   onResult?: (result: string) => void;
 }
 
-function ToolCall({ toolCall, onResult }: ToolCallProps) {
+function ToolCall({ toolCall, onResult, key }: ToolCallProps) {
   const { toolName, state, args, result } = toolCall;
 
   switch (state) {
@@ -219,9 +221,17 @@ function ToolCall({ toolCall, onResult }: ToolCallProps) {
               </div>
             </AccordionTrigger>
             <AccordionContent className="pt-2">
-              <pre className="text-sm">
-                {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
-              </pre>
+              {typeof result === "object" && "isError" in result && result.isError ? (
+                <p className="text-sm bg-red-500/10 text-red-500 p-2 rounded-md">
+                  {result.content.map((content: any) => content.text).join("\n")}
+                </p>
+              ) : typeof result === "object" && "content" in result ? (
+                <p className="text-sm">
+                  {result.content.map((content: any) => content.text).join("\n")}
+                </p>
+              ) : (
+                <p className="text-sm">{result}</p>
+              )}
             </AccordionContent>
           </AccordionItem>
         </Accordion>
@@ -244,12 +254,12 @@ export default function ChatMessage(props: { message: UIMessage }) {
     >
       {message.content}
     </div>
-  ) : (
+  ) : isAssistant ? (
     <div key={message.id} className="flex flex-col gap-2 p-4">
       {message.parts.map((part: any) => {
         switch (part.type) {
           case "text":
-            return renderMarkdown(part.text);
+            return renderMarkdown(part.text, part.id);
           case "tool-invocation":
             return <ToolCall key={part.id} toolCall={part.toolInvocation} />;
           case "tool-result":
@@ -261,5 +271,7 @@ export default function ChatMessage(props: { message: UIMessage }) {
         }
       })}
     </div>
+  ) : (
+    <div></div>
   );
 }
