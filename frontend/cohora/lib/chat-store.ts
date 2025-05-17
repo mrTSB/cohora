@@ -1,31 +1,26 @@
 import { generateId, Message } from "ai";
-import { existsSync, mkdirSync } from "fs";
-import { readFile, writeFile } from "fs/promises";
-import path from "path";
+import { JsonDB } from "./db";
 
-export async function createChat(): Promise<string> {
-  const id = generateId(); // generate a unique chat ID
-  await writeFile(getChatFile(id), "[]"); // create an empty chat file
+const db = new JsonDB();
+
+export async function createChat(userId: string): Promise<string> {
+  const id = generateId();
+  await db.saveChat(userId, id, []);
   return id;
 }
 
-function getChatFile(id: string): string {
-  const chatDir = path.join(process.cwd(), ".chats");
-  if (!existsSync(chatDir)) mkdirSync(chatDir, { recursive: true });
-  return path.join(chatDir, `${id}.json`);
-}
-
-export async function loadChat(id: string): Promise<Message[]> {
-  return JSON.parse(await readFile(getChatFile(id), "utf8"));
+export async function loadChat(userId: string, id: string): Promise<Message[]> {
+  return db.getChat(userId, id);
 }
 
 export async function saveChat({
+  userId,
   id,
   messages,
 }: {
+  userId: string;
   id: string;
   messages: Message[];
 }): Promise<void> {
-  const content = JSON.stringify(messages, null, 2);
-  await writeFile(getChatFile(id), content);
+  await db.saveChat(userId, id, messages);
 }
