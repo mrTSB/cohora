@@ -29,7 +29,7 @@ const routes = [
 
 export function Navbar() {
   return (
-    <header className="absolute top-2 left-1/2 -translate-x-1/2 z-50 max-w-screen-lg w-full border bg-background/95 backdrop-blur mx-auto rounded-full supports-[backdrop-filter]:bg-background/60 p-4 py-2">
+    <header className="sticky top-2 z-50 max-w-screen-lg w-full border bg-background/95 backdrop-blur mx-auto rounded-full supports-[backdrop-filter]:bg-background/60 p-4 py-2">
       <div className="container flex h-14 items-center justify-between">
         <Link href="/" className="flex-1 items-center space-x-2">
           <img src="/cohora.svg" alt="Cohora" width={120} height={30} />
