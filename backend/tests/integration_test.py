@@ -4,8 +4,8 @@ import json
 import httpx
 import websockets
 
-BASE_URL = "https://4b88-50-175-245-62.ngrok-free.app"
-WS_URL = "wss://4b88-50-175-245-62.ngrok-free.app/ws"
+BASE_URL = "https://c444-50-175-245-62.ngrok-free.app"
+WS_URL = "wss://c444-50-175-245-62.ngrok-free.app/ws"
 
 async def main():
     async with httpx.AsyncClient() as client:
@@ -40,7 +40,7 @@ async def main():
         print("Alice WebSocket Ack:", ack_alice)
         print("Bob WebSocket Ack:", ack_bob)
 
-        await asyncio.sleep(20)
+        await asyncio.sleep(300)
         
         # Send a message from Alice to Bob via the HTTP endpoint
         message_payload = {
