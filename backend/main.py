@@ -1,8 +1,8 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, status
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, status, Header
 from pyngrok import ngrok
 import uvicorn
 import asyncio
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 from pydantic import BaseModel
 import uuid
 from enum import IntEnum
@@ -52,7 +52,7 @@ class CreateUserResponse(BaseModel):
     status: int = status.HTTP_201_CREATED
 
 class SendMessageRequest(BaseModel):
-    recipient_id: str
+    recipient_name: str
     message: str
 
 class SendMessageResponse(BaseModel):
@@ -90,25 +90,59 @@ async def list_users():
 @app.post("/api/messages/send",
           response_model=SendMessageResponse,
           status_code=status.HTTP_200_OK)
-async def send_message(request: SendMessageRequest):
-    if request.recipient_id not in connections:
+async def send_message(
+    request: SendMessageRequest,
+    x_user_id: Union[str, None] = Header(default=None)
+):
+    if not x_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "code": MessageStatus.UNAUTHORIZED,
+                "message": "Authentication required"
+            }
+        )
+
+    # Verify sender exists
+    sender_name = None
+    for name, id in users.items():
+        if id == x_user_id:
+            sender_name = name
+            break
+
+    if not sender_name:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "code": MessageStatus.UNAUTHORIZED,
+                "message": "Invalid user ID"
+            }
+        )
+
+    # Get recipient's ID from their username
+    recipient_id = users.get(request.recipient_name)
+    if not recipient_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
                 "code": MessageStatus.NOT_FOUND,
-                "message": "Recipient not found or not connected"
+                "message": f"Recipient '{request.recipient_name}' not found"
+            }
+        )
+
+    if recipient_id not in connections:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": MessageStatus.NOT_FOUND,
+                "message": f"Recipient '{request.recipient_name}' is not connected"
             }
         )
     
     message_id = str(uuid.uuid4())
-    sender_name = None
-    for name, id in users.items():
-        if id == request.recipient_id:
-            sender_name = name
-            break
 
     try:
-        await connections[request.recipient_id].send_json({
+        await connections[recipient_id].send_json({
             "from": sender_name,
             "message": request.message,
             "message_id": message_id,
@@ -118,7 +152,7 @@ async def send_message(request: SendMessageRequest):
         return SendMessageResponse(
             message_id=message_id,
             status=MessageStatus.DELIVERED,
-            details=f"Message {message_id} delivered to recipient {request.recipient_id}"
+            details=f"Message {message_id} delivered to {request.recipient_name}"
         )
     except Exception as e:
         raise HTTPException(
