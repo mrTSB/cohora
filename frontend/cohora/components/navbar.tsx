@@ -10,6 +10,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SignInButton } from "@clerk/nextjs";
+import { SignedOut } from "@clerk/nextjs";
+import { UserButton } from "@clerk/nextjs";
+import { SignedIn } from "@clerk/nextjs";
+import { SignUpButton } from "@clerk/nextjs";
 
 const routes = [
   {
@@ -29,28 +34,45 @@ export function Navbar() {
         <Link href="/" className="flex-1 items-center space-x-2">
           <img src="/cohora.svg" alt="Cohora" width={120} height={30} />
         </Link>
-        <nav className="flex items-center space-x-4">
+        <nav className="flex items-center space-x-4 mx-2">
           {routes.map((route) => (
             <Link
               key={route.href}
               href={route.href}
-              className="transition-colors text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg px-4 py-2 hover:no-underline"
+              className="transition-colors text-muted-foreground hover:text-foreground hover:bg-primary/30 rounded-lg px-4 py-2 hover:no-underline"
             >
               {route.label}
             </Link>
           ))}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="default" className="relative h-12 w-12 rounded-full ml-4">
-                <span className="sr-only">Open user menu</span>
+          <SignedOut>
+            <SignInButton mode="modal">
+              <Button
+                variant="ghost"
+                className="text-md font-normal text-muted-foreground hover:text-foreground hover:bg-primary/30 px-4 py-2 hover:no-underline cursor-pointer"
+              >
+                Sign in
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuItem>Log out</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <Button
+                variant="default"
+                className="rounded-full px-4 py-2 h-10 text-md hover:no-underline"
+              >
+                Sign up
+              </Button>
+            </SignUpButton>
+          </SignedOut>
+          <SignedIn>
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: "w-16 h-16",
+                  avatarImage: "w-16 h-16 mr-2",
+                },
+              }}
+              afterSignOutUrl="/"
+            />
+          </SignedIn>
         </nav>
       </div>
     </header>

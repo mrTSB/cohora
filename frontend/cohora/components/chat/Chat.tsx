@@ -1,5 +1,6 @@
 "use client";
 
+import { useUser } from "@clerk/nextjs";
 import { TypographyP } from "../ui/prose";
 import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";
@@ -7,7 +8,8 @@ import { useChat } from "@ai-sdk/react";
 import Image from "next/image";
 
 export default function Chat() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+  const { user } = useUser();
+  const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
     maxSteps: 20,
   });
   return (
@@ -30,12 +32,9 @@ export default function Chat() {
               className="animate-fade-in"
             />
             <div className="text-center space-y-4">
-              <h1 className="text-3xl font-light tracking-tight">
-                Have your people talk to my people
-              </h1>
+              <h1 className="text-3xl font-light tracking-tight">Hey, {user?.firstName}</h1>
               <p className="text-muted-foreground text-lg tracking-tight">
-                Cohora is your personal assistant, connecting with other people's personal
-                assistants to help you get things done.
+                Have your people talk to my people
               </p>
             </div>
           </div>
