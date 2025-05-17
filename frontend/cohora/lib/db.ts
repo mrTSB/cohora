@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync } from "fs";
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
+import { MCPServer } from "./tools";
 
 interface UserData {
   chats: Record<string, any[]>;
@@ -68,7 +69,8 @@ export class JsonDB {
     return userData.mcpServers;
   }
 
-  async saveMcpServer(userId: string, serverId: string, serverData: any): Promise<void> {
+  async saveMcpServer(userId: string, serverId: string, serverData: MCPServer): Promise<void> {
+    console.log("Saving MCP Server", serverData);
     const userData = await this.getUserData(userId);
     userData.mcpServers[serverId] = serverData;
     await this.updateUserData(userId, userData);

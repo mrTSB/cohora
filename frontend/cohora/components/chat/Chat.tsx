@@ -7,6 +7,9 @@ import ChatMessage from "./ChatMessage";
 import { useChat } from "@ai-sdk/react";
 import Image from "next/image";
 import { Message } from "ai";
+import MCPServerForm from "./MCPServerForm";
+import { useState } from "react";
+import { getAllTools, type MCPServer } from "@/lib/tools";
 
 interface ChatProps {
   id?: string;
@@ -15,6 +18,21 @@ interface ChatProps {
 
 export default function Chat({ id, initialMessages }: ChatProps) {
   const { user } = useUser();
+  const [mcpTools, setMcpTools] = useState<typeof getAllTools>({});
+  const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
+
+  const handleAddMCPServer = async (serverData: MCPServer) => {
+    console.log("Adding MCP Server", serverData);
+
+    const response = await fetch("/api/mcp-servers", {
+      method: "POST",
+      body: JSON.stringify(serverData),
+    });
+    if (response.ok) {
+      console.log("MCP Server added", JSON.stringify(serverData));
+    }
+  };
+
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     id,
     initialMessages,
@@ -26,8 +44,8 @@ export default function Chat({ id, initialMessages }: ChatProps) {
       <div className="flex-1 overflow-y-auto space-y-6 p-8 mx-auto min-h-0 w-full">
         {messages.length > 0 && (
           <div className="flex flex-1 flex-col justify-start h-full gap-4 w-full">
-            {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
+            {messages.map((message, index) => (
+              <ChatMessage key={index} message={message} />
             ))}
           </div>
         )}
@@ -45,6 +63,7 @@ export default function Chat({ id, initialMessages }: ChatProps) {
               <p className="text-muted-foreground text-lg tracking-tight">
                 Have your people talk to my people
               </p>
+              <MCPServerForm onSubmit={handleAddMCPServer} onCancel={() => {}} />
             </div>
           </div>
         )}
