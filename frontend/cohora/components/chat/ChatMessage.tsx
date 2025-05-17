@@ -254,7 +254,7 @@ export default function ChatMessage(props: { message: UIMessage }) {
     >
       {message.content}
     </div>
-  ) : (
+  ) : isAssistant ? (
     <div key={message.id} className="flex flex-col gap-2 p-4">
       {message.parts.map((part: any) => {
         switch (part.type) {
@@ -271,5 +271,7 @@ export default function ChatMessage(props: { message: UIMessage }) {
         }
       })}
     </div>
+  ) : (
+    <div></div>
   );
 }

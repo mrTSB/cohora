@@ -40,16 +40,16 @@ export default function Chat({ id, initialMessages }: ChatProps) {
   });
 
   return (
-    <div className="flex flex-col max-w-screen-lg h-screen mx-auto w-full">
+    <div className="flex flex-col max-w-screen-lg h-full mx-auto w-full">
       <div className="flex-1 overflow-y-auto space-y-6 p-8 mx-auto min-h-0 w-full">
-        {messages.length > 0 && (
+        {messages.length > 1 && (
           <div className="flex flex-1 flex-col justify-start h-full gap-4 w-full">
             {messages.map((message, index) => (
               <ChatMessage key={index} message={message} />
             ))}
           </div>
         )}
-        {messages.length === 0 && (
+        {messages.length <= 1 && (
           <div className="flex flex-1 flex-col items-center justify-center h-full">
             <Image
               src="/cohora.svg"

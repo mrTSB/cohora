@@ -8,6 +8,6 @@ export default async function Page() {
     redirect("/");
   }
 
-  const id = await createChat(user.id); // create a new chat
+  const id = await createChat(user.id, user.firstName!); // create a new chat
   redirect(`/chat/${id}`); // redirect to chat page, see below
 }
