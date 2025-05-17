@@ -94,19 +94,10 @@ async def send_message(
     request: SendMessageRequest,
     x_user_id: Union[str, None] = Header(default=None)
 ):
-    if not x_user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "code": MessageStatus.UNAUTHORIZED,
-                "message": "Authentication required"
-            }
-        )
-
     # Verify sender exists
     sender_name = None
     for name, id in users.items():
-        if id == x_user_id:
+        if request.recipient_name == name:
             sender_name = name
             break
 

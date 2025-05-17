@@ -4,8 +4,8 @@ import json
 import httpx
 import websockets
 
-BASE_URL = "http://localhost:8000"
-WS_URL = "ws://localhost:8000/ws"
+BASE_URL = "https://e394-50-175-245-62.ngrok-free.app"
+WS_URL = "wss://e394-50-175-245-62.ngrok-free.app/ws"
 
 async def main():
     async with httpx.AsyncClient() as client:
@@ -40,15 +40,15 @@ async def main():
         print("Alice WebSocket Ack:", ack_alice)
         print("Bob WebSocket Ack:", ack_bob)
 
-        await asyncio.sleep(20)
+        await asyncio.sleep(10)
         
         # Send a message from Alice to Bob via the HTTP endpoint
         message_payload = {
             "recipient_name": "bob",
             "message": "Hello Bob! This is Alice."
         }
-        send_res = await client.post(f"{BASE_URL}/api/messages/send", json=message_payload,
-                                       headers={"x-user-id": user1_id})
+        # send_res = await client.post(f"{BASE_URL}/api/messages/send", json=message_payload, headers={"x-user-id": user1_id})
+        send_res = await client.post(f"{BASE_URL}/api/messages/send", json=message_payload)
         send_data = send_res.json()
         print("Send Message Response:", send_data)
         
@@ -60,5 +60,39 @@ async def main():
         await ws_alice.close()
         await ws_bob.close()
 
+async def listen_test():
+    async with httpx.AsyncClient() as client:
+        # Create a single user
+        res = await client.post(f"{BASE_URL}/api/users/create", json={"name": "jeff"})
+        user_data = res.json()
+        user_id = user_data["id"]
+        print("Created user:")
+        print("Listener:", user_data)
+        
+        # Establish websocket connection
+        print("Connecting websocket...")
+        ws = await websockets.connect(WS_URL)
+        print("WebSocket connected.")
+        
+        # Authenticate by sending user ID
+        await ws.send(json.dumps({"id": user_id}))
+        print(f"Sent auth for listener: {user_id}")
+        
+        # Receive connection acknowledgement
+        ack = await ws.recv()
+        print("WebSocket Ack:", ack)
+        
+        print("Listening for messages... (Press Ctrl+C to stop)")
+        try:
+            while True:
+                message = await ws.recv()
+                print("Received message:", message)
+        except KeyboardInterrupt:
+            print("\nStopping listener...")
+        finally:
+            await ws.close()
+
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    # Uncomment the test you want to run
+    # asyncio.run(main())
+    asyncio.run(listen_test()) 
