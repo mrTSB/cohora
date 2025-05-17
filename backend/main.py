@@ -1,10 +1,11 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, status
 from pyngrok import ngrok
 import uvicorn
 import asyncio
-from typing import Dict
+from typing import Dict, Optional
 from pydantic import BaseModel
 import uuid
+from enum import IntEnum
 
 app = FastAPI()
 
@@ -12,52 +13,127 @@ app = FastAPI()
 users: Dict[str, str] = {}  # Maps name -> id
 connections: Dict[str, WebSocket] = {}  # Maps user_id -> WebSocket
 
+# WebSocket Close Codes (RFC 6455)
+class WSCloseCode(IntEnum):
+    NORMAL_CLOSURE = 1000
+    GOING_AWAY = 1001
+    PROTOCOL_ERROR = 1002
+    UNSUPPORTED_DATA = 1003
+    INVALID_DATA = 1007
+    POLICY_VIOLATION = 1008
+    MESSAGE_TOO_BIG = 1009
+    MANDATORY_EXTENSION = 1010
+    INTERNAL_ERROR = 1011
+    SERVICE_RESTART = 1012
+    TRY_AGAIN_LATER = 1013
+    BAD_GATEWAY = 1014
+    TLS_HANDSHAKE = 1015
+    
+    # Custom close codes (4000-4999 range is reserved for private use)
+    AUTHENTICATION_FAILED = 4001
+    INVALID_USER = 4002
+    SESSION_EXPIRED = 4003
+
+# Message Status Codes
+class MessageStatus(IntEnum):
+    DELIVERED = 200
+    QUEUED = 202
+    BAD_REQUEST = 400
+    UNAUTHORIZED = 401
+    NOT_FOUND = 404
+    INTERNAL_ERROR = 500
+
 # Pydantic models for request/response validation
 class CreateUserRequest(BaseModel):
     name: str
+
+class CreateUserResponse(BaseModel):
+    id: str
+    status: int = status.HTTP_201_CREATED
 
 class SendMessageRequest(BaseModel):
     recipient_id: str
     message: str
 
-@app.post("/api/users/create")
+class SendMessageResponse(BaseModel):
+    message_id: str
+    status: MessageStatus
+    details: str
+
+class MessageDelivery(BaseModel):
+    from_user: str
+    message: str
+    timestamp: float
+    message_id: str
+
+@app.post("/api/users/create", 
+         response_model=CreateUserResponse,
+         status_code=status.HTTP_201_CREATED)
 async def create_user(request: CreateUserRequest):
     if request.name in users:
-        raise HTTPException(status_code=409, detail="Username already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username already exists"
+        )
     user_id = str(uuid.uuid4())
     users[request.name] = user_id
-    return {"id": user_id}
+    return CreateUserResponse(id=user_id)
 
-@app.get("/api/users/list")
+@app.get("/api/users/list",
+         status_code=status.HTTP_200_OK)
 async def list_users():
-    return {"users": {name: id for name, id in users.items()}}
+    return {
+        "status": status.HTTP_200_OK,
+        "users": {name: id for name, id in users.items()}
+    }
 
-@app.post("/api/messages/send")
+@app.post("/api/messages/send",
+          response_model=SendMessageResponse,
+          status_code=status.HTTP_200_OK)
 async def send_message(request: SendMessageRequest):
     if request.recipient_id not in connections:
-        raise HTTPException(status_code=404, detail="Recipient not found or not connected")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": MessageStatus.NOT_FOUND,
+                "message": "Recipient not found or not connected"
+            }
+        )
     
-    # Find sender's name
+    message_id = str(uuid.uuid4())
     sender_name = None
     for name, id in users.items():
         if id == request.recipient_id:
             sender_name = name
             break
 
-    # Send message through WebSocket
-    await connections[request.recipient_id].send_json({
-        "from": sender_name,
-        "message": request.message
-    })
-    
-    return {
-        "status": "success",
-        "details": f"Message sent to recipient_id: {request.recipient_id}"
-    }
+    try:
+        await connections[request.recipient_id].send_json({
+            "from": sender_name,
+            "message": request.message,
+            "message_id": message_id,
+            "timestamp": asyncio.get_event_loop().time()
+        })
+        
+        return SendMessageResponse(
+            message_id=message_id,
+            status=MessageStatus.DELIVERED,
+            details=f"Message {message_id} delivered to recipient {request.recipient_id}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "code": MessageStatus.INTERNAL_ERROR,
+                "message": "Failed to deliver message",
+                "error": str(e)
+            }
+        )
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    user_id: Optional[str] = None
     
     try:
         # Get authentication data
@@ -65,25 +141,40 @@ async def websocket_endpoint(websocket: WebSocket):
         user_id = auth_data.get("id")
         
         # Validate user_id
+        if not user_id:
+            await websocket.close(code=WSCloseCode.AUTHENTICATION_FAILED)
+            return
+            
         if not any(id == user_id for id in users.values()):
-            await websocket.close(code=4001, reason="Invalid user ID")
+            await websocket.close(code=WSCloseCode.INVALID_USER)
             return
         
         # Store connection
         connections[user_id] = websocket
         print(f"[Server] User with ID '{user_id}' connected")
         
+        # Send connection acknowledgment
+        await websocket.send_json({
+            "type": "connection_status",
+            "status": status.HTTP_101_SWITCHING_PROTOCOLS,
+            "message": "Connected successfully"
+        })
+        
         # Keep connection alive and handle incoming messages
         while True:
-            await websocket.receive_text()  # Just keep connection alive
+            await websocket.receive_text()  # Heartbeat
             
     except WebSocketDisconnect:
         if user_id in connections:
             del connections[user_id]
             print(f"[Server] User with ID '{user_id}' disconnected")
+    except Exception as e:
+        print(f"[Server] Error in WebSocket connection: {str(e)}")
+        if websocket.client_state.CONNECTED:
+            await websocket.close(code=WSCloseCode.INTERNAL_ERROR)
 
 if __name__ == "__main__":
     public_url = ngrok.connect(8000, "http")
     print(f"[Server] Public URL: {public_url}")
     print(f"[Server] WebSocket URL: {public_url}/ws")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000) 

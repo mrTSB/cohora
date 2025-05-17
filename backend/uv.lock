@@ -3,6 +3,6 @@ revision = 1
 requires-python = ">=3.11"
 
 [[package]]
-name = "cohora"
+name = "backend"
 version = "0.1.0"
 source = { virtual = "." }
