@@ -4,3 +4,4 @@ pyngrok
 websockets
 pydantic
 requests
+httpx
