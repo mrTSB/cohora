@@ -1,8 +1,7 @@
 import { ToolSet } from "ai";
 import { Cloud, LucideIcon, MessageCircle, Activity } from "lucide-react";
 import { z } from "zod";
-import { experimental_createMCPClient } from "ai";
-import { Experimental_StdioMCPTransport as StdioMCPTransport } from "ai/mcp-stdio";
+import { BASE_URL, WS_URL, connectToChat, disconnect, sendMessage } from "@/app/api/communicator";
 
 interface Tool {
   name: string;
@@ -14,26 +13,27 @@ interface Tool {
   doneName?: string;
 }
 
+const myUserId = "e5996883-035d-4eb9-ba07-2185b9e358d6";
 // WebSocket singleton to maintain connection
 let ws: WebSocket | null = null;
 
 const initializeWebSocket = (userId: string) => {
   if (!ws || ws.readyState === WebSocket.CLOSED) {
-    ws = new WebSocket('ws://localhost:8000/ws');
+    ws = new WebSocket(WS_URL);
     ws.onopen = () => {
       if (ws) {
         ws.send(JSON.stringify({ id: userId }));
       }
     };
     ws.onmessage = (event) => {
-      console.log('Received:', event.data);
+      console.log("Received:", event.data);
     };
     ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      console.error("WebSocket error:", error);
     };
   }
   if (!ws) {
-    throw new Error('Failed to initialize WebSocket connection');
+    throw new Error("Failed to initialize WebSocket connection");
   }
   return ws;
 };
@@ -58,22 +58,22 @@ const tools: Tool[] = [
     execute: async ({ userId }: { userId: string }) => {
       return new Promise((resolve, reject) => {
         const socket = initializeWebSocket(userId);
-        
+
         const timeoutId = setTimeout(() => {
-          reject(new Error('Ping timeout'));
+          reject(new Error("Ping timeout"));
         }, 5000);
 
         const messageHandler = (event: MessageEvent) => {
           const data = JSON.parse(event.data);
-          if (data.type === 'heartbeat') {
+          if (data.type === "heartbeat") {
             clearTimeout(timeoutId);
-            socket.removeEventListener('message', messageHandler);
+            socket.removeEventListener("message", messageHandler);
             resolve(data);
           }
         };
 
-        socket.addEventListener('message', messageHandler);
-        socket.send(''); // Empty message triggers heartbeat
+        socket.addEventListener("message", messageHandler);
+        socket.send(""); // Empty message triggers heartbeat
       });
     },
     icon: Activity,
@@ -88,12 +88,20 @@ const tools: Tool[] = [
       recipientName: z.string(),
       message: z.string(),
     }),
-    execute: async ({ userId, recipientName, message }: { userId: string, recipientName: string, message: string }) => {
-      const response = await fetch('https://79e5-50-175-245-62.ngrok-free.app/api/messages/send', {
-        method: 'POST',
+    execute: async ({
+      userId,
+      recipientName,
+      message,
+    }: {
+      userId: string;
+      recipientName: string;
+      message: string;
+    }) => {
+      const response = await fetch(`${BASE_URL}/api/messages/send`, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': userId,
+          "Content-Type": "application/json",
+          "x-user-id": userId,
         },
         body: JSON.stringify({
           recipient_name: recipientName,
@@ -110,6 +118,24 @@ const tools: Tool[] = [
     icon: MessageCircle,
     executingName: "Sending message",
     doneName: "Message sent!",
+  },
+  {
+    name: "listenForResponse",
+    description: "Listen for a response from the server",
+    parameters: z.object({
+      userId: z.string(),
+    }),
+    execute: async () => {
+      return new Promise((resolve) => {
+        connectToChat(myUserId, (message) => {
+          disconnect();
+          resolve(message);
+        });
+      });
+    },
+    icon: MessageCircle,
+    executingName: "Listening for response",
+    doneName: "Response received!",
   },
 ];
 const getTool = (name: string) => tools.find((tool) => tool.name === name);

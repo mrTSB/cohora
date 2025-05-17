@@ -25,6 +25,10 @@ const routes = [
     href: "/chat",
     label: "Chat",
   },
+  {
+    href: "/listen",
+    label: "Listen",
+  },
 ];
 
 export function Navbar() {

@@ -230,7 +230,7 @@ function ToolCall({ toolCall, onResult, key }: ToolCallProps) {
                   {result.content.map((content: any) => content.text).join("\n")}
                 </p>
               ) : (
-                <p className="text-sm">{result}</p>
+                <p className="text-sm">{JSON.stringify(result)}</p>
               )}
             </AccordionContent>
           </AccordionItem>
