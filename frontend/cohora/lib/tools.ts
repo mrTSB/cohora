@@ -44,6 +44,10 @@ interface MCPServer {
   command: string;
   args: string[];
   env: Record<string, string>;
+  transport: {
+    type: "stdio" | "sse";
+    url?: string;
+  };
 }
 
 export { getAllTools, getTool, type Tool, type MCPServer };

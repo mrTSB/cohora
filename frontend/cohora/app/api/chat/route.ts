@@ -12,14 +12,16 @@ export const maxDuration = 30;
 
 async function initializeMCPServer(server: MCPServer): Promise<ToolSet> {
   try {
-    const mcpClient = await experimental_createMCPClient({
-      transport: new StdioMCPTransport({
-        command: server.command,
-        args: server.args,
-        env: server.env,
-      }),
-    });
+    const transport =
+      server.transport.type === "sse"
+        ? { type: "sse" as const, url: server.transport.url! }
+        : new StdioMCPTransport({
+            command: server.command,
+            args: server.args,
+            env: server.env,
+          });
 
+    const mcpClient = await experimental_createMCPClient({ transport });
     return mcpClient.tools();
   } catch (error) {
     console.error("Failed to initialize MCP server:", error);

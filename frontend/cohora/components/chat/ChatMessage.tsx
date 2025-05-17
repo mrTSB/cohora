@@ -222,11 +222,15 @@ function ToolCall({ toolCall, onResult, key }: ToolCallProps) {
             </AccordionTrigger>
             <AccordionContent className="pt-2">
               {typeof result === "object" && "isError" in result && result.isError ? (
-                <pre className="text-sm bg-red-500/10 text-red-500 p-2 rounded-md">
+                <p className="text-sm bg-red-500/10 text-red-500 p-2 rounded-md">
                   {result.content.map((content: any) => content.text).join("\n")}
-                </pre>
+                </p>
+              ) : typeof result === "object" && "content" in result ? (
+                <p className="text-sm">
+                  {result.content.map((content: any) => content.text).join("\n")}
+                </p>
               ) : (
-                <pre className="text-sm">{result}</pre>
+                <p className="text-sm">{result}</p>
               )}
             </AccordionContent>
           </AccordionItem>
