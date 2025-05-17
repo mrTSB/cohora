@@ -36,7 +36,7 @@ export default function Chat({ id, initialMessages }: ChatProps) {
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     id,
     initialMessages,
-    maxSteps: 20,
+    maxSteps: 100,
   });
 
   return (

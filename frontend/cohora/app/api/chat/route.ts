@@ -7,9 +7,6 @@ import { redirect } from "next/navigation";
 import { JsonDB } from "@/lib/db";
 import { Experimental_StdioMCPTransport as StdioMCPTransport } from "ai/mcp-stdio";
 
-// Allow streaming responses up to 30 seconds
-export const maxDuration = 30;
-
 async function initializeMCPServer(server: MCPServer): Promise<ToolSet> {
   try {
     const transport =
@@ -60,6 +57,7 @@ export async function POST(req: Request) {
         }),
       });
     },
+    maxSteps: 100,
   });
 
   return result.toDataStreamResponse();
