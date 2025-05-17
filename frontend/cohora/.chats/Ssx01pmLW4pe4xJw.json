@@ -1,0 +1,28 @@
+[
+  {
+    "role": "user",
+    "content": "hello agin!",
+    "parts": [
+      {
+        "type": "text",
+        "text": "hello agin!"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "id": "msg-mvTsg8X3lmawsJqysj544kch",
+    "createdAt": "2025-05-17T20:19:55.192Z",
+    "content": "Hello there! How can I assist you today? I can help with various tasks, including checking the weather for a specific city. Is there something specific you'd like to know or a service you'd like me to provide?",
+    "toolInvocations": [],
+    "parts": [
+      {
+        "type": "step-start"
+      },
+      {
+        "type": "text",
+        "text": "Hello there! How can I assist you today? I can help with various tasks, including checking the weather for a specific city. Is there something specific you'd like to know or a service you'd like me to provide?"
+      }
+    ]
+  }
+]
