@@ -13,7 +13,7 @@ interface Tool {
   doneName?: string;
 }
 
-const myUserId = "e5996883-035d-4eb9-ba07-2185b9e358d6";
+const myUserId = "7c03880c-d64f-4115-b9ee-2300a64ebb81";
 // WebSocket singleton to maintain connection
 let ws: WebSocket | null = null;
 

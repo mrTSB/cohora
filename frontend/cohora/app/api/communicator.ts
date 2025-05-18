@@ -39,8 +39,8 @@ interface MessageDelivery {
 export type { MessageDelivery };
 
 // Update these URLs with your actual ngrok URLs from the backend console
-export const BASE_URL = "https://79e5-50-175-245-62.ngrok-free.app";
-export const WS_URL = "wss://79e5-50-175-245-62.ngrok-free.app/ws";
+export const BASE_URL = "https://17a0-50-175-245-62.ngrok-free.app";
+export const WS_URL = "wss://17a0-50-175-245-62.ngrok-free.app/ws";
 
 let userId: string | null = null;
 let ws: WebSocket | null = null;

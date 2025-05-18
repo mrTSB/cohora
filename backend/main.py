@@ -134,7 +134,7 @@ async def send_message(
 
     try:
         await connections[recipient_id].send_json({
-            "from": sender_name,
+            "to": sender_name,
             "message": request.message,
             "message_id": message_id,
             "timestamp": asyncio.get_event_loop().time()
