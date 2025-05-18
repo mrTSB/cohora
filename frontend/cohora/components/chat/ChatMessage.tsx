@@ -229,6 +229,16 @@ function ToolCall({ toolCall, onResult, key }: ToolCallProps) {
                 <p className="text-sm">
                   {result.content.map((content: any) => content.text).join("\n")}
                 </p>
+              ) : toolName === "listenForResponse" ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-bold">{result?.from} says:</p>
+                  <p className="text-md">{result?.message}</p>
+                </div>
+              ) : toolName === "sendChatMessage" ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-bold">Sent message to {result?.recipientName}:</p>
+                  <p className="text-md">{result?.message}</p>
+                </div>
               ) : (
                 <p className="text-sm">{JSON.stringify(result)}</p>
               )}

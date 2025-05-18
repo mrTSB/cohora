@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import { connectToChat, disconnect } from "../api/communicator";
 import { MessageDelivery } from "../api/communicator";
+import { myUserId } from "@/lib/config";
 
 export default function ListenPage() {
   const [messages, setMessages] = useState<MessageDelivery[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const userId = "e5996883-035d-4eb9-ba07-2185b9e358d6";
+  const userId = myUserId;
   useEffect(() => {
     const setupConnection = async () => {
       try {
