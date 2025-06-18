@@ -14,7 +14,6 @@ interface Tool {
   doneName?: string;
 }
 
-const myUserId = "7c03880c-d64f-4115-b9ee-2300a64ebb81";
 // WebSocket singleton to maintain connection
 let ws: WebSocket | null = null;
 
@@ -51,35 +50,6 @@ const tools: Tool[] = [
     icon: Cloud,
     executingName: "Checking the weather",
     doneName: "Checked the weather!",
-  },
-  {
-    name: "pingServer",
-    description: "Send a heartbeat ping to the server",
-    parameters: z.object({ userId: z.string() }),
-    execute: async ({ userId }: { userId: string }) => {
-      return new Promise((resolve, reject) => {
-        const socket = initializeWebSocket(userId);
-
-        const timeoutId = setTimeout(() => {
-          reject(new Error("Ping timeout"));
-        }, 5000);
-
-        const messageHandler = (event: MessageEvent) => {
-          const data = JSON.parse(event.data);
-          if (data.type === "heartbeat") {
-            clearTimeout(timeoutId);
-            socket.removeEventListener("message", messageHandler);
-            resolve(data);
-          }
-        };
-
-        socket.addEventListener("message", messageHandler);
-        socket.send(""); // Empty message triggers heartbeat
-      });
-    },
-    icon: Activity,
-    executingName: "Pinging server",
-    doneName: "Server pinged successfully!",
   },
   {
     name: "sendChatMessage",
