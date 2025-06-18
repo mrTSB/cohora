@@ -1,7 +1,8 @@
 import { ToolSet } from "ai";
 import { Cloud, LucideIcon, MessageCircle, Activity } from "lucide-react";
 import { z } from "zod";
-import { BASE_URL, WS_URL, connectToChat, disconnect, sendMessage } from "@/app/api/communicator";
+import { connectToChat, disconnect } from "@/app/api/communicator";
+import { BASE_URL, WS_URL, myUserId } from "./config";
 
 interface Tool {
   name: string;
@@ -113,7 +114,7 @@ const tools: Tool[] = [
         throw new Error(`Failed to send message: ${response.statusText}`);
       }
 
-      return response.json();
+      return { ...response, message: message, recipientName: recipientName };
     },
     icon: MessageCircle,
     executingName: "Sending message",

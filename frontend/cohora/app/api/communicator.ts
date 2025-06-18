@@ -1,3 +1,5 @@
+import { BASE_URL, WS_URL } from "@/lib/config";
+
 // Represents the status of a message
 enum MessageStatus {
   DELIVERED = 200,
